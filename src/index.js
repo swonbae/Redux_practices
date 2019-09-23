@@ -4,45 +4,55 @@ import "./index.css";
 import App from "./App";
 // import reducer from './reducers'
 import { applyMiddleware, createStore } from "redux";
+import axios from "axios";
+import { createLogger } from "redux-logger";
+import thunk from "redux-thunk";
 
-const reducer = (initialState = 0, action) => {
-  if (action.type === "INC") {
-    return initialState + 1;
-  } else if (action.type === "DEC") {
-    return initialState - 1;
-  } else if (action.type === "E") {
-    throw new Error("AAA!!");
+const initialState = {
+  fetching: false,
+  fetched: false,
+  users: [],
+  error: null
+};
+
+const reducer = (state = initialState, action) => {
+  switch (action.type) {
+    case "FETCH_USERS_START": {
+      return { ...state, fetching: true };
+    }
+    case "FETCH_USER_ERROR": {
+      return { ...state, fetching: false, error: action.payload };
+    }
+    case "RECEIVE_USERS": {
+      return {
+        ...state,
+        fetching: false,
+        fetched: true,
+        users: action.payload
+      };
+    }
   }
-
-  return initialState;
+  return state;
 };
 
-const logger = store => next => action => {
-  console.log("action fired", action);
-  //   action.type = "DEC";
-  next(action);
-};
+const middleware = applyMiddleware(thunk, createLogger());
+const store = createStore(reducer, middleware);
 
-const error = store => next => action => {
-  try {
-    next(action);
-  } catch (e) {
-    console.log("AHHHHH!!", e);
-  }
-};
+// store.subscribe(() => {
+//   console.log("store changed", store.getState());
+// });
 
-const middleware = applyMiddleware(logger, error);
-
-const store = createStore(reducer, 1, middleware);
-
-store.subscribe(() => {
-  console.log("store changed", store.getState());
+store.dispatch(dispatch => {
+  dispatch({ type: "FETCH_USERS_START" });
+  // do something async
+  axios
+    .get("http://rest.learncode.academy/api/wstern/users")
+    .then(response => {
+      dispatch({ type: "RECEIVE_USERS", payload: response.data });
+    })
+    .catch(err => {
+      dispatch({ type: "FETCH_USERS_ERROR", payload: err });
+    });
 });
-
-store.dispatch({ type: "INC" });
-store.dispatch({ type: "INC" });
-store.dispatch({ type: "INC" });
-store.dispatch({ type: "DEC" });
-store.dispatch({ type: "E" });
 
 ReactDOM.render(<App />, document.getElementById("root"));
